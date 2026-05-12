@@ -1,0 +1,24 @@
+{
+  "resourceType": "Encounter",
+  "id": "enc-pt-456",
+  "status": "finished",
+  "class": {
+    "system": "http://terminology.hl7.org/CodeSystem/v3-ActCode",
+    "code": "AMB",
+    "display": "ambulatory"
+  },
+  "type": [
+    {
+      "coding": [
+        {"system": "http://snomed.info/sct", "code": "91251008", "display": "Physical therapy procedure"}
+      ],
+      "text": "Physical therapy - 8 completed sessions for chronic low back pain"
+    }
+  ],
+  "subject": {"reference": "Patient/mr-johnson-123"},
+  "period": {"start": "2026-01-12", "end": "2026-02-28"},
+  "reasonReference": [{"reference": "Condition/cond-lbp-001"}],
+  "reasonCode": [
+    {"text": "Conservative management of chronic lumbar low back pain - 8 supervised PT sessions over 7 weeks"}
+  ]
+}

@@ -1,0 +1,56 @@
+# --- Python bytecode and build artifacts ---
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyc
+*.pyo
+*.pyd
+*.so
+.Python
+*.egg-info/
+build/
+dist/
+
+# --- Virtual environments ---
+.venv/
+venv/
+env/
+ENV/
+
+# --- Environment files / credentials ---
+.env
+.env.*
+.env.local
+!.env.example
+
+# --- Test and coverage artifacts ---
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+*.log
+
+# --- Editor swap and backup files ---
+*.swp
+*.swo
+*~
+
+# --- ngrok artifacts ---
+.ngrok
+.ngrok2/
+*.ngrok
+
+# --- IDE / OS metadata ---
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# --- Project-specific scratch / generated artifacts ---
+/tools/
+/image/
+
+# --- Local-only archive (kept on disk for reference, never pushed) ---
+_archive/

@@ -1,0 +1,22 @@
+{
+  "resourceType": "MedicationRequest",
+  "id": "medreq-gabapentin-001",
+  "status": "stopped",
+  "statusReason": {
+    "coding": [
+      {"system": "http://terminology.hl7.org/CodeSystem/medicationrequest-status-reason", "code": "ineffective", "display": "Ineffective"}
+    ],
+    "text": "Inadequate symptom control after 6 weeks at therapeutic dose"
+  },
+  "intent": "order",
+  "medicationCodeableConcept": {
+    "coding": [
+      {"system": "http://www.nlm.nih.gov/research/umls/rxnorm", "code": "310431", "display": "Gabapentin 300 MG Oral Capsule"}
+    ],
+    "text": "Gabapentin 300 mg PO TID"
+  },
+  "subject": {"reference": "Patient/mr-johnson-123"},
+  "authoredOn": "2026-01-05",
+  "reasonReference": [{"reference": "Condition/cond-lbp-001"}],
+  "dosageInstruction": [{"text": "300 mg by mouth three times daily"}]
+}

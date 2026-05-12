@@ -1,0 +1,23 @@
+{
+  "resourceType": "Observation",
+  "id": "obs-redflags-001",
+  "status": "final",
+  "category": [
+    {"coding": [{"system": "http://terminology.hl7.org/CodeSystem/observation-category", "code": "exam", "display": "Exam"}]}
+  ],
+  "code": {
+    "coding": [
+      {"system": "http://snomed.info/sct", "code": "225338004", "display": "Physical examination procedure"}
+    ],
+    "text": "Red-flag screen for lumbar spine (cauda equina, fever, malignancy hx, IV drug use, recent trauma)"
+  },
+  "subject": {"reference": "Patient/mr-johnson-123"},
+  "encounter": {"reference": "Encounter/enc-pt-456"},
+  "effectiveDateTime": "2026-03-01",
+  "valueCodeableConcept": {
+    "coding": [
+      {"system": "http://snomed.info/sct", "code": "260385009", "display": "Negative"}
+    ],
+    "text": "All red-flag criteria negative on focused exam and history"
+  }
+}

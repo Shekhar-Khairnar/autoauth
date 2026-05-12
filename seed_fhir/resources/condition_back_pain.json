@@ -1,0 +1,26 @@
+{
+  "resourceType": "Condition",
+  "id": "cond-lbp-001",
+  "clinicalStatus": {
+    "coding": [
+      {"system": "http://terminology.hl7.org/CodeSystem/condition-clinical", "code": "active", "display": "Active"}
+    ]
+  },
+  "verificationStatus": {
+    "coding": [
+      {"system": "http://terminology.hl7.org/CodeSystem/condition-ver-status", "code": "confirmed", "display": "Confirmed"}
+    ]
+  },
+  "category": [
+    {"coding": [{"system": "http://terminology.hl7.org/CodeSystem/condition-category", "code": "problem-list-item"}]}
+  ],
+  "code": {
+    "coding": [
+      {"system": "http://hl7.org/fhir/sid/icd-10-cm", "code": "M54.50", "display": "Low back pain, unspecified"}
+    ],
+    "text": "Chronic lumbar low back pain"
+  },
+  "subject": {"reference": "Patient/mr-johnson-123"},
+  "onsetDateTime": "2025-11-10",
+  "recordedDate": "2026-02-01"
+}
