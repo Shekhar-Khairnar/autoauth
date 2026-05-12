@@ -131,15 +131,24 @@ Prompt Opinion integration step rather than inside the tools.
 - **Output:** `{ status: "approved" | "denied" | "pending", auth_number: str | None, denial_reason: str | None }`
 - **Logic:** POST to mock payer `/pas/claim`. Mock payer's deterministic
   behavior: first submission for a patient_id returns `denied` with reason
-  "Insufficient documentation of conservative therapy". Second submission
-  returns `approved` with fake auth number. Module-level dict tracks state.
+  "Insufficient documentation of conservative therapy". A subsequent
+  resubmission (performed inside `appeal_denial`) returns `approved` with
+  a fake auth number. A module-level dict tracks state in the mock payer.
 
-### 5. `appeal_denial` ★ GENAI ★
-- **Input:** `patient_id: str`, `denial_reason: str`, `original_narrative: str`
-- **Output:** `{ appeal_letter: str, additional_evidence_refs: list[str] }`
-- **Logic:** Re-fetch FHIR bundle, pass denial reason + original narrative to
-  LLM with `prompts/appeal_system.md`. LLM identifies specific FHIR evidence
-  that rebuts the denial reason. Returns formatted appeal letter.
+### 5. `appeal_denial` ★ GENAI ★ (appeal + resubmit, consolidated)
+- **Input:** `patient_id: str`, `cpt_code: str`, `denial_reason: str`,
+  `original_narrative: str`, `questionnaire_response: dict`,
+  `original_evidence_refs: list[str]`
+- **Output:** `{ appeal_letter: str, additional_evidence_refs: list[str],
+  final_status: str, auth_number: str | None, final_denial_reason: str | None }`
+- **Logic:** Re-fetch the FHIR bundle, pass denial reason + original
+  narrative to the LLM with `prompts/appeal_system.md` to draft a formal
+  appeal letter. **Then immediately resubmit the appeal letter to the
+  payer's PAS endpoint** with the original questionnaire response and the
+  merged evidence list, returning the payer's final adjudication
+  alongside the appeal artifacts. Consolidating these two operations into
+  a single tool call keeps the orchestrator's chain at five tool calls,
+  which improves reliability with smaller orchestrator LLMs.
 
 ---
 
@@ -147,14 +156,15 @@ Prompt Opinion integration step rather than inside the tools.
 
 - **Patient ID:** `mr-johnson-123`
 - **CPT code:** `72148` (MRI lumbar spine without contrast)
-- **Expected agent loop iterations:** 6
+- **Expected agent loop iterations:** 5
   1. `crd_check_coverage` → `pa_required: true`
   2. `dtr_fetch_questionnaire` → returns 4-item Questionnaire
   3. `synthesize_clinical_justification` → narrative + evidence refs
   4. `pas_submit_bundle` → `denied` with reason
-  5. `appeal_denial` → appeal letter with additional evidence
-  6. `pas_submit_bundle` → `approved` with auth number
-- **Final orchestrator message:** "MRI approved. Authorization # MH-AUTH-XXXX."
+  5. `appeal_denial` → drafts appeal letter, resubmits internally, returns
+     `final_status: "approved"` and an `auth_number`
+- **Final orchestrator message:** "MRI approved. Authorization # MH-AUTH-XXXX.
+  Initial denial overturned on automated appeal."
 
 ---
 

@@ -102,34 +102,27 @@ Two external services:
    t=5   ┌────────── LOOP ITERATION 5 ──────────┐
          │  Thought: "Denial reason is wrong —  │
          │           the chart has the evidence.│
-         │           Generate an appeal."       │
+         │           Appeal and resubmit."      │
          │  Action:  appeal_denial(             │
          │             patient_id,              │
-         │             denial_reason,           │
-         │             original_narrative)      │
-         │  ★ LLM re-reads chart                │
-         │  ★ Identifies specific evidence the  │
-         │     payer claimed was missing        │
-         │  ★ Drafts formal appeal letter       │
-         │  Result:  { appeal_letter,           │
-         │            additional_evidence_refs} │
-         └──────────────────────────────────────┘
-                                  │
-   t=6   ┌────────── LOOP ITERATION 6 ──────────┐
-         │  Thought: "Resubmit with appeal"     │
-         │  Action:  pas_submit_bundle(         │
-         │             patient_id,              │
          │             cpt_code,                │
+         │             denial_reason,           │
+         │             original_narrative,      │
          │             questionnaire_response,  │
-         │             narrative=appeal_letter, │
-         │             evidence_refs=combined)  │
-         │  Result:  { status: "approved",      │
+         │             original_evidence_refs)  │
+         │  ★ LLM re-reads chart                │
+         │  ★ Drafts formal appeal letter       │
+         │  ★ Tool then POSTs the appeal to the │
+         │     payer's PAS endpoint internally  │
+         │  Result:  { appeal_letter,           │
+         │            additional_evidence_refs, │
+         │            final_status: "approved", │
          │            auth_number:              │
          │            "MH-AUTH-4F2A" }          │
          │  State.stage = "approved"            │
          └──────────────────────────────────────┘
                                   │
-   t=7   Orchestrator → User:
+   t=6   Orchestrator → User:
          "✓ MRI lumbar spine approved.
           Authorization # MH-AUTH-4F2A.
           Note: Initial denial overturned via

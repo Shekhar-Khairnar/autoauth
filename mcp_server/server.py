@@ -124,24 +124,45 @@ def pas_submit_bundle(
 @mcp.tool()
 def appeal_denial(
     patient_id: str,
+    cpt_code: str,
     denial_reason: str,
     original_narrative: str,
+    questionnaire_response: dict[str, Any],
+    original_evidence_refs: list[str],
 ) -> dict[str, Any]:
-    """Step 5 - the GenAI appeal agent. Re-read the FHIR chart, identify the
-    specific evidence that rebuts the payer's stated denial reason, and draft
-    a formal appeal letter. After this returns, the orchestrator should call
-    pas_submit_bundle again with the appeal letter as the narrative.
+    """Step 5 - the GenAI appeal agent. Drafts a formal appeal letter AND
+    resubmits it to the payer in a single tool call. Returns the payer's
+    final adjudication (auth number on approval, denial reason on second
+    denial).
+
+    The orchestrator should call this ONCE after pas_submit_bundle returns
+    status='denied'. Do NOT call pas_submit_bundle again afterward - this
+    tool already performed the resubmission and the auth number it returns
+    is the final outcome.
 
     Args:
         patient_id: FHIR Patient id.
-        denial_reason: the denial_reason string returned by pas_submit_bundle.
-        original_narrative: narrative that was originally submitted.
+        cpt_code: CPT procedure code (same one submitted to PAS originally).
+        denial_reason: denial_reason string returned by pas_submit_bundle.
+        original_narrative: narrative originally submitted to PAS.
+        questionnaire_response: the linkId -> answer mapping from
+            synthesize_clinical_justification (resent on the resubmit).
+        original_evidence_refs: evidence refs cited in the original submission.
 
     Returns:
         dict with keys: appeal_letter (markdown), additional_evidence_refs
-        (list of FHIR refs), summary (markdown for chat display).
+        (list of FHIR refs newly cited by the appeal), final_status
+        ("approved" | "denied" | "pending"), auth_number (str | None),
+        final_denial_reason (str | None), summary (markdown for chat display).
     """
-    return appeal.run(patient_id, denial_reason, original_narrative)
+    return appeal.run(
+        patient_id,
+        cpt_code,
+        denial_reason,
+        original_narrative,
+        questionnaire_response,
+        original_evidence_refs,
+    )
 
 
 def main() -> None:

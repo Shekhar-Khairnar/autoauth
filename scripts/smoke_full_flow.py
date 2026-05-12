@@ -3,10 +3,12 @@
 Exercises the full prior-authorization pipeline without Prompt Opinion or
 any A2A layer in between:
 
-    CRD -> DTR -> synthesize -> PAS (denied) -> appeal -> PAS (approved)
+    CRD -> DTR -> synthesize -> PAS (denied) -> appeal+resubmit (approved)
 
 Useful both as a CI-style regression check and as a plan-B demo when the
-hosted UI is uncooperative.
+hosted orchestrator UI is uncooperative. Note that `appeal_denial` now
+performs the resubmit internally, so the full happy path is five tool
+calls rather than six.
 
 Prereqs:
   - Mock payer running on http://localhost:8081 (see scripts/run_mock_payer.sh).
@@ -19,6 +21,12 @@ import pathlib
 import sys
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent))
+
+# LLMs sometimes emit Unicode glyphs (>=, en-dash, etc.) that Windows'
+# default cp1252 console encoding cannot represent. Force stdout to UTF-8
+# so the smoke test prints cleanly on any terminal.
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
 import requests
 from dotenv import load_dotenv
@@ -53,9 +61,10 @@ def print_step_header(label: str) -> None:
 def main() -> None:
     """Drive the full happy-path PA flow end-to-end.
 
-    Resets the mock payer's submission state, then runs each of the six
-    pipeline steps in order. Asserts each branch (PA required, first denial,
-    second approval) so a regression in any single tool fails the script.
+    Resets the mock payer's submission state, then runs each pipeline step
+    in order: coverage discovery, fetch questionnaire, synthesize
+    justification, submit PA (expect denial), appeal + auto-resubmit
+    (expect approval). Asserts each branch.
 
     Returns:
         None. Prints each step's markdown summary and the final auth number.
@@ -101,35 +110,22 @@ def main() -> None:
         f"expected denied, got {initial_pas_decision['status']}"
     )
 
-    print_step_header("5) APPEAL (LLM) - draft appeal letter")
-    appeal_packet = appeal.run(
-        constants.PATIENT_ID,
-        initial_pas_decision["denial_reason"],
-        clinical_justification["narrative"],
-    )
-    print(appeal_packet["summary"])
-
-    print_step_header("6) PAS - resubmit with appeal (expect APPROVED)")
-    combined_evidence_refs = list(
-        dict.fromkeys(
-            clinical_justification["evidence_refs"]
-            + appeal_packet["additional_evidence_refs"]
-        )
-    )
-    final_pas_decision = pas.run(
+    print_step_header("5) APPEAL + RESUBMIT (LLM + PAS) - expect APPROVED")
+    appeal_outcome = appeal.run(
         constants.PATIENT_ID,
         constants.CPT_MRI_LUMBAR,
+        initial_pas_decision["denial_reason"],
+        clinical_justification["narrative"],
         clinical_justification["answers"],
-        appeal_packet["appeal_letter"],
-        combined_evidence_refs,
+        clinical_justification["evidence_refs"],
     )
-    print(final_pas_decision["summary"])
-    assert final_pas_decision["status"] == "approved", (
-        f"expected approved, got {final_pas_decision['status']}"
+    print(appeal_outcome["summary"])
+    assert appeal_outcome["final_status"] == "approved", (
+        f"expected approved on appeal, got {appeal_outcome['final_status']}"
     )
 
     print_step_header("DONE - full PA flow succeeded end-to-end")
-    print(f"Authorization number: {final_pas_decision['auth_number']}")
+    print(f"Authorization number: {appeal_outcome['auth_number']}")
 
 
 if __name__ == "__main__":
