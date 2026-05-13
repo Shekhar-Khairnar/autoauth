@@ -28,14 +28,16 @@ The federal infrastructure exists. The agents don't.
 An A2A orchestrator agent coordinates five MCP tools across the full PA
 pipeline. When a clinician orders an MRI, the agent:
 
-1. Checks coverage requirements via Da Vinci CRD
-2. Fetches the payer's questionnaire via DTR
-3. Reads the patient's full FHIR chart and writes a cited clinical
-   justification using GenAI
-4. Submits via PAS
-5. When (not if) the payer's AI denies the claim, the agent re-reads the
-   chart, identifies the rebutting evidence, and files a formal appeal
-6. Returns the approval to the clinician — all in under a minute
+1. **CRD** — checks whether prior authorization is required and identifies
+   the payer's questionnaire id.
+2. **DTR** — fetches the structured FHIR Questionnaire to answer.
+3. **Synthesize (GenAI)** — reads the patient's full FHIR chart and writes
+   a cited medical-necessity narrative.
+4. **PAS** — submits the prior-auth bundle for adjudication.
+5. **Appeal (GenAI)** — when the first submission is denied, drafts a
+   formal rebuttal letter citing the chart evidence the payer missed, then
+   automatically resubmits and returns the final authorization number — all
+   in a single tool call.
 
 ---
 
@@ -65,9 +67,11 @@ pipeline. When a clinician orders an MRI, the agent:
 └─────────┬──────────────────────────────────────┬─────────┘
           ▼                                      ▼
 ┌────────────────────┐               ┌──────────────────────┐
-│ Mock Payer (PoC)   │               │ HAPI Public FHIR     │
-│ FastAPI            │               │ Synthetic patient    │
-│ /crd /dtr /pas     │               │ Mr. Johnson, 58M     │
+│ Payer responses    │               │ HAPI Public FHIR     │
+│ in-process for the │               │ Synthetic patient    │
+│ hosted MCP server; │               │ Mr. Johnson, 58M     │
+│ optional FastAPI   │               │                      │
+│ mock for local dev │               │                      │
 └────────────────────┘               └──────────────────────┘
 ```
 
@@ -114,7 +118,39 @@ Every architectural choice maps to a published standard:
 
 ---
 
+## Try the Agent
+
+Once the MCP server is registered in Prompt Opinion (or any MCP-compatible
+orchestrator), send this single prompt to kick off the full workflow:
+
+> **Order MRI lumbar spine for patient mr-johnson-123**
+
+The agent will then:
+
+1. **Check coverage requirements (CRD)** — confirms prior authorization is
+   required and identifies the payer's questionnaire.
+2. **Fetch the questionnaire (DTR)** — pulls the structured FHIR
+   Questionnaire the payer wants answered.
+3. **Synthesize clinical justification (GenAI)** — reads the patient's
+   FHIR chart and drafts a medical-necessity narrative with explicit
+   citations to specific FHIR resources.
+4. **Submit prior authorization (PAS)** — sends the bundle for
+   adjudication.
+5. **Handle denials with an automated appeal (GenAI)** — when the first
+   submission is denied, drafts a rebuttal citing the chart evidence the
+   payer missed and resubmits, returning the final authorization number.
+
+All clinical data is synthetic, hosted on the public HAPI FHIR R4 test
+server at `https://hapi.fhir.org/baseR4`. No real patient information is
+involved.
+
+---
+
 ## Quickstart
+
+The cloud-hosted MCP server uses in-process payer responses, so the only
+moving parts you need to run are the MCP server itself and an ngrok
+tunnel (if exposing to a hosted orchestrator).
 
 ```bash
 # 1. Install dependencies
@@ -124,34 +160,38 @@ pip install -r requirements.txt
 cp .env.example .env
 # edit .env to add your OPENROUTER_API_KEY
 
-# 3. Seed synthetic patient to HAPI public FHIR server
+# 3. Seed the synthetic patient + chart to the public HAPI FHIR server
 ./scripts/seed.sh
 
-# 4. Start the mock payer (terminal 1)
-./scripts/run_mock_payer.sh
-
-# 5. Start the MCP server (terminal 2)
+# 4. Start the MCP server
 ./scripts/run_mcp_server.sh
 
-# 6. Expose via ngrok for Prompt Opinion (terminal 3)
+# 5. (Hosted use) Expose port 8000 via ngrok
 ./scripts/ngrok.sh
 
-# 7. Register the ngrok URL as an MCP server in Prompt Opinion
-# 8. Configure A2A agent in Prompt Opinion UI to use the tools
-# 9. Chat: "Order MRI lumbar spine for patient mr-johnson-123"
+# 6. Register the ngrok URL as an MCP server in your orchestrator
+#    (e.g. Prompt Opinion), paste agent/orchestrator_system.md as the
+#    agent's system prompt, then chat:
+#    "Order MRI lumbar spine for patient mr-johnson-123"
 ```
+
+### Optional: run the local mock payer
+
+A FastAPI mock payer (`mock_payer/main.py`) is still bundled for local
+end-to-end testing of the original HTTP-based PA workflow. Start it with
+`./scripts/run_mock_payer.sh` if you want to exercise that path. The
+cloud-deployed tools do not depend on it.
 
 ---
 
 ## Tech Stack
 
 - **Python 3.11+**
-- **MCP SDK** (`mcp[cli]`) — tool server protocol
-- **OpenRouter** — LLM access (Claude Haiku)
-- **FastAPI + Uvicorn** — mock payer endpoints
-- **HAPI FHIR public test server** — synthetic patient EHR
-- **Plain `requests`** — FHIR client
-- **ngrok** — local-to-public tunnel during dev
-- **Render** — final deployment for judging window
+- **MCP SDK** (`mcp[cli]`) — tool server protocol, streamable HTTP transport
+- **OpenRouter** — LLM access (default model: Claude Haiku 4.5)
+- **HAPI FHIR public test server** — synthetic patient EHR (R4)
+- **Plain `requests`** — FHIR client (no FHIR SDK on purpose)
+- **FastAPI + Uvicorn** — bundled mock payer for local end-to-end testing
+- **ngrok** — exposes the local MCP server to a hosted orchestrator
 
 ---
