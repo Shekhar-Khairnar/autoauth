@@ -195,3 +195,9 @@ cloud-deployed tools do not depend on it.
 - **ngrok** — exposes the local MCP server to a hosted orchestrator
 
 ---
+
+## License
+
+Copyright (c) 2026 Shekhar Khairnar. All rights reserved.
+
+This repository is publicly available for review and demonstration purposes only. No permission is granted to use, copy, modify, distribute, sublicense, sell, or create derivative works without prior written permission.
