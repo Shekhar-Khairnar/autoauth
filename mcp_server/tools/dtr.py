@@ -1,25 +1,47 @@
 """Tool 2 of 5: Documentation Templates and Rules (Da Vinci DTR).
 
-Once CRD has confirmed PA is required and named a Questionnaire id, the DTR
-step retrieves that structured Questionnaire from the payer. The
-Questionnaire's `item[]` array tells the orchestrator exactly which fields
-the medical-necessity narrative must answer.
+For the hosted-demo deployment the MCP server runs without a separately
+deployed mock payer, so this tool returns a hardcoded FHIR Questionnaire
+rather than HTTP-calling a payer service.
 """
 from typing import Any
 
-from mcp_server import payer_client
+_HARDCODED_QUESTIONNAIRE: dict[str, Any] = {
+    "resourceType": "Questionnaire",
+    "id": "q-mri-lumbar-v1",
+    "status": "active",
+    "item": [
+        {
+            "linkId": "pain-duration",
+            "text": "How long has the patient had low back pain?",
+            "type": "string",
+        },
+        {
+            "linkId": "conservative-therapy",
+            "text": "Has the patient completed conservative therapy (PT/NSAIDs)?",
+            "type": "boolean",
+        },
+        {
+            "linkId": "red-flags",
+            "text": "Any red flag symptoms (fever, unexplained weight loss)?",
+            "type": "boolean",
+        },
+        {
+            "linkId": "prior-imaging",
+            "text": "Any prior lumbar imaging in the last 12 months?",
+            "type": "boolean",
+        },
+    ],
+}
 
 
 def run(questionnaire_id: str, context: dict | None = None) -> dict[str, Any]:
-    """Retrieve the payer's DTR Questionnaire and summarize its items.
-
-    Calls the payer's `/dtr/questionnaire/{id}` endpoint and returns the raw
-    FHIR R4 Questionnaire alongside a markdown summary listing each item so
-    the chat surface can show the user which fields will be answered.
+    """Return the hardcoded MRI lumbar Questionnaire and a chat-ready summary.
 
     Args:
-        questionnaire_id: Identifier returned by `crd_check_coverage`,
-            e.g. "q-mri-lumbar-v1".
+        questionnaire_id: Identifier returned by `crd_check_coverage`. Only
+            "q-mri-lumbar-v1" is supported by this demo build; any other id
+            still returns the same Questionnaire for hosted-deploy robustness.
         context: SHARP passthrough dict from Prompt Opinion carrying
             `patient_id`, `fhir_token`, and `practitioner_id`. Accepted on
             every tool so authentication propagation can be turned on
@@ -27,26 +49,24 @@ def run(questionnaire_id: str, context: dict | None = None) -> dict[str, Any]:
 
     Returns:
         dict with keys:
-            - questionnaire: dict, the FHIR R4 Questionnaire resource.
-            - summary: str, markdown block enumerating each `item.linkId`,
-              `item.type`, and `item.text`.
+            - questionnaire: the FHIR R4 Questionnaire resource dict.
+            - summary: markdown block listing each `linkId`, `type`, `text`.
 
     Example:
         >>> result = run("q-mri-lumbar-v1")
         >>> result["questionnaire"]["resourceType"]
         'Questionnaire'
-        >>> "pain-duration" in result["summary"]
-        True
+        >>> len(result["questionnaire"]["item"])
+        4
     """
-    questionnaire = payer_client.dtr_call(questionnaire_id)
-    items = questionnaire.get("item", []) or []
+    questionnaire = _HARDCODED_QUESTIONNAIRE
+    items = questionnaire["item"]
     item_bullets = [
-        f"- `{item.get('linkId','?')}` ({item.get('type','string')}): {item.get('text','')}"
+        f"- `{item['linkId']}` ({item['type']}): {item['text']}"
         for item in items
     ]
     chat_summary = (
-        f"## DTR Questionnaire `{questionnaire.get('id', questionnaire_id)}`\n\n"
-        f"**Title:** {questionnaire.get('title', '(untitled)')}\n\n"
+        f"## DTR Questionnaire `{questionnaire['id']}`\n\n"
         f"**Items to answer ({len(items)}):**\n" + "\n".join(item_bullets)
     )
     return {"questionnaire": questionnaire, "summary": chat_summary}

@@ -26,7 +26,8 @@ import json
 from pathlib import Path
 from typing import Any
 
-from mcp_server import fhir_client, llm_client, payer_client
+from mcp_server import fhir_client, llm_client
+from mcp_server.tools import pas as pas_tool
 
 _APPEAL_PROMPT_PATH = (
     Path(__file__).resolve().parent.parent / "prompts" / "appeal_system.md"
@@ -158,6 +159,12 @@ def _resubmit_to_payer(
 ) -> dict[str, Any]:
     """Send the appeal back to the payer's PAS endpoint.
 
+    Routes through `pas_tool.run()` so both the initial submission and the
+    appeal-resubmit share the same hardcoded deny-then-approve counter for
+    the cloud-deploy build. The returned dict keeps only the wire-level
+    keys (`status`, `auth_number`, `denial_reason`) so this helper stays a
+    drop-in replacement for the previous HTTP call.
+
     Args:
         patient_id: FHIR Patient id.
         cpt_code: CPT procedure code.
@@ -174,14 +181,18 @@ def _resubmit_to_payer(
         >>> verdict["status"] in {"approved", "denied", "pending"}
         True
     """
-    pas_payload = {
-        "patient_id": patient_id,
-        "cpt_code": cpt_code,
-        "questionnaire_response": questionnaire_response,
-        "narrative": appeal_letter,
-        "evidence_refs": evidence_refs,
+    pas_result = pas_tool.run(
+        patient_id,
+        cpt_code,
+        questionnaire_response,
+        appeal_letter,
+        evidence_refs,
+    )
+    return {
+        "status": pas_result.get("status"),
+        "auth_number": pas_result.get("auth_number"),
+        "denial_reason": pas_result.get("denial_reason"),
     }
-    return payer_client.pas_call(pas_payload)
 
 
 def _build_summary(

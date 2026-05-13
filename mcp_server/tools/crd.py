@@ -1,13 +1,15 @@
 """Tool 1 of 5: Coverage Requirements Discovery (Da Vinci CRD).
 
-CRD is the entry point of the Burden Reduction workflow. The provider's
-system asks the payer "is prior authorization required for this CPT on this
-patient, and if so which Questionnaire should I fetch?". This module wraps
-that interaction and shapes the answer for chat display.
+For the hosted-demo deployment the MCP server runs without a separately
+deployed mock payer, so this tool returns a hardcoded coverage decision
+rather than HTTP-calling a payer service. The decision is the one the
+demo storyline requires: prior authorization IS required and the next
+step is to fetch questionnaire `q-mri-lumbar-v1`.
 """
 from typing import Any
 
-from mcp_server import payer_client
+_HARDCODED_PAYER_NAME = "MockHealth Plan"
+_HARDCODED_QUESTIONNAIRE_ID = "q-mri-lumbar-v1"
 
 
 def run(
@@ -15,14 +17,10 @@ def run(
     patient_id: str,
     context: dict | None = None,
 ) -> dict[str, Any]:
-    """Determine whether prior authorization is required for a CPT + patient.
-
-    Calls the payer's `/crd/coverage-discovery` endpoint and returns both the
-    structured decision and a markdown summary suitable for direct display in
-    the orchestrator's chat UI.
+    """Return the hardcoded coverage-discovery decision for the demo workflow.
 
     Args:
-        cpt_code: CPT/HCPCS procedure code, e.g. "72148" for MRI lumbar spine.
+        cpt_code: CPT/HCPCS procedure code, e.g. "72148".
         patient_id: FHIR Patient id, e.g. "mr-johnson-123".
         context: SHARP passthrough dict from Prompt Opinion carrying
             `patient_id`, `fhir_token`, and `practitioner_id`. Accepted on
@@ -31,9 +29,8 @@ def run(
 
     Returns:
         dict with keys:
-            - pa_required: bool, True when prior authorization is required.
-            - questionnaire_id: str | None, DTR Questionnaire id to fetch
-              next when `pa_required` is True; None otherwise.
+            - pa_required: bool, True for the demo path.
+            - questionnaire_id: str, DTR Questionnaire id to fetch next.
             - payer_name: str, human-readable payer label.
             - summary: str, markdown block for the chat surface.
 
@@ -43,31 +40,19 @@ def run(
         True
         >>> coverage["questionnaire_id"]
         'q-mri-lumbar-v1'
-        >>> print(coverage["summary"].splitlines()[0])
-        ## Coverage Discovery (CRD)
     """
-    payer_response = payer_client.crd_call(cpt_code, patient_id)
-    pa_required = bool(payer_response.get("pa_required"))
-    questionnaire_id = payer_response.get("questionnaire_id")
-    payer_name = payer_response.get("payer_name", "Unknown Payer")
+    pa_required = True
+    questionnaire_id = _HARDCODED_QUESTIONNAIRE_ID
+    payer_name = _HARDCODED_PAYER_NAME
 
-    if pa_required:
-        chat_summary = (
-            f"## Coverage Discovery (CRD)\n\n"
-            f"- **Payer:** {payer_name}\n"
-            f"- **CPT:** `{cpt_code}`\n"
-            f"- **Prior authorization required:** **YES**\n"
-            f"- **Questionnaire id:** `{questionnaire_id}`\n\n"
-            f"_Next step: call `dtr_fetch_questionnaire` with that id._"
-        )
-    else:
-        chat_summary = (
-            f"## Coverage Discovery (CRD)\n\n"
-            f"- **Payer:** {payer_name}\n"
-            f"- **CPT:** `{cpt_code}`\n"
-            f"- **Prior authorization required:** **NO**\n\n"
-            f"_Proceed with the order; no PA workflow needed._"
-        )
+    chat_summary = (
+        f"## Coverage Discovery (CRD)\n\n"
+        f"- **Payer:** {payer_name}\n"
+        f"- **CPT:** `{cpt_code}`\n"
+        f"- **Prior authorization required:** **YES**\n"
+        f"- **Questionnaire id:** `{questionnaire_id}`\n\n"
+        f"_Next step: call `dtr_fetch_questionnaire` with that id._"
+    )
 
     return {
         "pa_required": pa_required,
